@@ -45,6 +45,17 @@ int VpnToPhyPage(int vpn)
   //your code here to get a physical frame for page vpn
   //you can refer to PageOutPageIn(int vpn) to see how an entry was created in ipt
 
+  //Implementing the hash function to retrieve the list of entries
+  IptEntry* iptPtr = hashIPT(vpn, currentThread->pid);
+
+  //while traversing to the next node in the linked list
+  while(iptPtr = iptPtr->next){
+	//if the node matches, return the physical page
+  	if(iptPtr->vPage == vpn && iptPtr->pid == currentThread->pid)
+  		return iptPtr->phyPage;
+  }
+	return -1;
+
 }
 
 //----------------------------------------------------------------------
@@ -58,6 +69,24 @@ void InsertToTLB(int vpn, int phyPage)
   int i = 0; //entry in the TLB
 
   //your code to find an empty in TLB or to replace the oldest entry if TLB is full
+  
+  static int FIFOPointer = 0;
+
+  //Traverse through the TLB and proceed if there are invalid entry.
+  while(i<TLBSize){
+  	if(!machine->tlb[i].valid){
+		break;
+	}
+	i++;
+  }
+
+  //After traversing the TLB, if i equals to TLBSize, set i to the entry which pointed by the FIFOPointer.
+  if(i==TLBSize){
+	i = FIFOPointer;
+  }
+
+  //Move the FIFOPointer to the next entry.
+  FIFOPointer = (i+1)%TLBSize;
   
   // copy dirty data to memoryTable
   if(machine->tlb[i].valid){
@@ -210,7 +239,31 @@ int clockAlgorithm(void)
   int phyPage;
 
   //your code here to find the physical frame that should be freed 
-  //according to the clock algorithm. 
+  //according to the clock algorithm.
+
+  static int clockPointer = 0;
+
+  while(true){
+  	printf("********************clock\n");
+	if(!memoryTable[clockPointer].valid)
+		break;
+	if(!memoryTable[clockPointer].dirty && memoryTable[clockPointer].clockCounter==OLD_ENOUGH)
+		break;
+	if(memoryTable[clockPointer].dirty && memoryTable[clockPointer].clockCounter==OLD_ENOUGH+DIRTY_ALLOWANCE)
+		break;
+
+	//increase the clockCounter of an entry
+	memoryTable[clockPointer].clockCounter++;
+
+	//proceed to the next entry
+	clockPointer=(clockPointer+1)%NumPhysPages;
+  }
+  //if any of the above 3 if conditions are met, then physical should be freed
+  phyPage=clockPointer;
+  printf("Phypage = %d ", phyPage);
+
+  //increment the clockPointer
+  clockPointer=(clockPointer+1)%NumPhysPages; 
 
   return phyPage;
 }
